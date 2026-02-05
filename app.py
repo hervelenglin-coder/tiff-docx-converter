@@ -74,13 +74,18 @@ def parse_page_ranges(page_string):
     return pages
 
 def emit_progress(session_id, step, progress, message, status='processing'):
-    socketio.emit('progress_update', {
+    """Émettre un événement de progression vers le client"""
+    data = {
         'session_id': session_id,
         'step': step,
         'progress': progress,
         'message': message,
         'status': status
-    }, room=session_id)
+    }
+    # Émettre à la room spécifique ET en broadcast pour assurer la réception
+    socketio.emit('progress_update', data, room=session_id)
+    socketio.emit('progress_update', data, namespace='/')
+    print(f"[PROGRESS] {session_id[:8]} - {step}: {progress}% - {message} ({status})")
 
 def convert_tiff_to_png(tiff_path, output_dir, session_id):
     png_files = []
@@ -716,6 +721,9 @@ def merge_documents(doc_files, output_path):
 
 def process_tiff(tiff_path, api_key, session_id, output_mode='image_only', exclude_pages=None, original_filename=None):
     try:
+        # Attendre que le client rejoigne la room
+        socketio.sleep(0.5)
+
         work_dir = os.path.join(app.config['OUTPUT_FOLDER'], session_id)
         os.makedirs(work_dir, exist_ok=True)
 
@@ -724,6 +732,7 @@ def process_tiff(tiff_path, api_key, session_id, output_mode='image_only', exclu
 
         # Conversion TIFF -> PNG
         emit_progress(session_id, 'conversion', 0, 'Conversion TIFF...', 'processing')
+        socketio.sleep(0.1)  # Laisser le temps au message d'être envoyé
         png_files = convert_tiff_to_png(tiff_path, work_dir, session_id)
         total_pages = len(png_files)
         emit_progress(session_id, 'conversion', 100, f'{total_pages} pages', 'completed')

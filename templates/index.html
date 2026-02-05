@@ -783,21 +783,36 @@
 
         // Initialize Socket.IO
         function initSocket() {
-            socket = io();
+            socket = io({
+                transports: ['websocket', 'polling'],
+                upgrade: true,
+                reconnection: true,
+                reconnectionAttempts: 5,
+                reconnectionDelay: 1000
+            });
 
             socket.on('connect', () => {
-                console.log('Connected to server');
+                console.log('Connected to server, socket id:', socket.id);
                 if (currentSessionId) {
+                    console.log('Joining room:', currentSessionId);
                     socket.emit('join', { session_id: currentSessionId });
                 }
             });
 
             socket.on('progress_update', (data) => {
-                updateProgress(data);
+                console.log('Progress update received:', data);
+                // Filtrer par session si nécessaire
+                if (!currentSessionId || data.session_id === currentSessionId) {
+                    updateProgress(data);
+                }
             });
 
             socket.on('disconnect', () => {
                 console.log('Disconnected from server');
+            });
+
+            socket.on('connect_error', (error) => {
+                console.log('Connection error:', error);
             });
         }
 
@@ -1182,8 +1197,14 @@
                     currentSessionId = data.session_id;
                     currentFileName = data.filename;
 
-                    // Join socket room
+                    // Join socket room immédiatement
+                    console.log('Upload success, joining room:', currentSessionId);
                     socket.emit('join', { session_id: currentSessionId });
+
+                    // Attendre confirmation de join avant de continuer
+                    setTimeout(() => {
+                        console.log('Room join should be complete');
+                    }, 500);
                 } else {
                     alert('Erreur: ' + data.error);
                     resetForm();
