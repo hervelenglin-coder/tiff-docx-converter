@@ -3,6 +3,12 @@ TIFF to DOCX Converter Web Application
 Converts multi-page TIFF files to formatted Word documents using Google Vision OCR
 """
 
+# Monkey-patch pour gevent (doit être en premier!)
+import os
+if os.environ.get('ASYNC_MODE') == 'gevent':
+    from gevent import monkey
+    monkey.patch_all()
+
 from flask import Flask, render_template, request, jsonify, send_file
 from flask_socketio import SocketIO, emit
 from werkzeug.utils import secure_filename
