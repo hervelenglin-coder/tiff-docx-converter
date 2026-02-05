@@ -741,7 +741,7 @@ def process_tiff(tiff_path, api_key, session_id, output_mode='image_only', exclu
                     ocr_results.append({'full_text': '', 'paragraphs': [], 'excluded': True})
                     emit_progress(session_id, 'ocr', progress, f'Page {page_num}/{total_pages} (exclue)', 'processing')
                     # Petit délai pour s'assurer que l'événement est envoyé
-                    time.sleep(0.05)
+                    socketio.sleep(0.05)
                 else:
                     try:
                         emit_progress(session_id, 'ocr', progress, f'OCR page {page_num}/{total_pages}...', 'processing')
@@ -752,7 +752,7 @@ def process_tiff(tiff_path, api_key, session_id, output_mode='image_only', exclu
                         ocr_results.append({'full_text': f'[Erreur: {str(e)}]', 'paragraphs': [], 'excluded': False})
 
             emit_progress(session_id, 'ocr', 100, 'OCR terminé', 'completed')
-            time.sleep(0.1)  # S'assurer que le message "completed" est bien envoyé
+            socketio.sleep(0.1)  # S'assurer que le message "completed" est bien envoyé
 
         # Préparer les métadonnées de conversion
         valid_excluded = sorted([p for p in excluded if 1 <= p <= total_pages])
@@ -790,10 +790,10 @@ def process_tiff(tiff_path, api_key, session_id, output_mode='image_only', exclu
             if is_excluded:
                 status_text += ' (image seule)'
             emit_progress(session_id, 'formatting', progress, status_text)
-            time.sleep(0.02)  # Petit délai pour l'UI
+            socketio.sleep(0.02)  # Petit délai pour l'UI
 
         emit_progress(session_id, 'formatting', 100, 'Terminé', 'completed')
-        time.sleep(0.1)
+        socketio.sleep(0.1)
 
         # Fusion
         emit_progress(session_id, 'merging', 0, 'Fusion...', 'processing')
@@ -801,10 +801,10 @@ def process_tiff(tiff_path, api_key, session_id, output_mode='image_only', exclu
         output_path = os.path.join(work_dir, output_filename)
         merge_documents(doc_files, output_path)
         emit_progress(session_id, 'merging', 100, 'Fusion terminée', 'completed')
-        time.sleep(0.1)
+        socketio.sleep(0.1)
 
         emit_progress(session_id, 'complete', 100, f'{total_pages} pages converties', 'completed')
-        time.sleep(0.1)
+        socketio.sleep(0.1)
         return {'success': True, 'output_file': output_filename, 'total_pages': total_pages}
 
     except Exception as e:
@@ -913,9 +913,8 @@ def upload_file():
         output_mode = 'text_positioned'
         exclude_pages = request.form.get('exclude_pages', '')
 
-        thread = threading.Thread(target=process_tiff, args=(file_path, api_key, session_id, output_mode, exclude_pages, filename))
-        thread.daemon = True  # Fix: permet au thread de se terminer proprement
-        thread.start()
+        # Utiliser socketio.start_background_task pour compatibilité avec gevent
+        socketio.start_background_task(process_tiff, file_path, api_key, session_id, output_mode, exclude_pages, filename)
 
         return jsonify({'success': True, 'session_id': session_id, 'filename': filename})
 
