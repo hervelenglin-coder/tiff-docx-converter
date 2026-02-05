@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TIFF to DOCX Converter - Google Vision OCR</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #4285f4;
+            --success-color: #34a853;
+            --warning-color: #fbbc05;
+            --danger-color: #ea4335;
+            --dark-bg: #1a1a2e;
+            --card-bg: #16213e;
+            --text-light: #e8e8e8;
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--dark-bg) 0%, #0f3460 100%);
+            min-height: 100vh;
+            color: var(--text-light);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .main-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .app-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .app-header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, #4285f4, #34a853, #fbbc05, #ea4335);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .app-header .subtitle {
+            color: #888;
+            font-size: 1.1rem;
+        }
+
+        .card-custom {
+            background: var(--card-bg);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            margin-bottom: 1.5rem;
+        }
+
+        .card-custom .card-header {
+            background: rgba(255,255,255,0.05);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding: 1rem 1.5rem;
+            font-weight: 600;
+        }
+
+        .card-custom .card-body {
+            padding: 1.5rem;
+        }
+
+        /* Privacy Warning */
+        .privacy-warning {
+            background: linear-gradient(135deg, rgba(251,188,5,0.15) 0%, rgba(234,67,53,0.15) 100%);
+            border: 1px solid rgba(251,188,5,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .privacy-warning .icon {
+            font-size: 2rem;
+            color: var(--warning-color);
+        }
+
+        .privacy-warning h5 {
+            color: var(--warning-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .privacy-warning ul {
+            margin-bottom: 0;
+            padding-left: 1.5rem;
+        }
+
+        .privacy-warning li {
+            margin-bottom: 0.25rem;
+            color: #ccc;
+        }
+
+        /* File Upload Area */
+        .upload-area {
+            border: 2px dashed rgba(66,133,244,0.5);
+            border-radius: 12px;
+            padding: 3rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(66,133,244,0.05);
+        }
+
+        .upload-area:hover, .upload-area.dragover {
+            border-color: var(--primary-color);
+            background: rgba(66,133,244,0.15);
+        }
+
+        .upload-area .icon {
+            font-size: 4rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+
+        .upload-area p {
+            color: #888;
+            margin-bottom: 0;
+        }
+
+        .file-selected {
+            background: rgba(52,168,83,0.1);
+            border-color: var(--success-color);
+        }
+
+        .file-selected .icon {
+            color: var(--success-color);
+        }
+
+        /* Form Inputs */
+        .form-control, .form-select {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: var(--text-light);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+        }
+
+        .form-control:focus, .form-select:focus {
+            background: rgba(255,255,255,0.1);
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(66,133,244,0.25);
+            color: var(--text-light);
+        }
+
+        .form-control::placeholder {
+            color: #666;
+        }
+
+        .form-label {
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-check-input {
+            background-color: rgba(255,255,255,0.1);
+            border-color: rgba(255,255,255,0.2);
+        }
+
+        .form-check-input:checked {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        /* Buttons */
+        .btn-convert {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #1a73e8 100%);
+            border: none;
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 10px;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+
+        .btn-convert:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(66,133,244,0.4);
+        }
+
+        .btn-convert:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Progress Section */
+        .progress-section {
+            display: none;
+        }
+
+        .progress-section.active {
+            display: block;
+        }
+
+        .step-item {
+            display: flex;
+            align-items: center;
+            padding: 1rem;
+            background: rgba(255,255,255,0.03);
+            border-radius: 10px;
+            margin-bottom: 0.75rem;
+            transition: all 0.3s ease;
+        }
+
+        .step-item.active {
+            background: rgba(66,133,244,0.1);
+            border-left: 3px solid var(--primary-color);
+        }
+
+        .step-item.completed {
+            background: rgba(52,168,83,0.1);
+            border-left: 3px solid var(--success-color);
+        }
+
+        .step-item.error {
+            background: rgba(234,67,53,0.1);
+            border-left: 3px solid var(--danger-color);
+        }
+
+        .step-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1rem;
+            font-size: 1.2rem;
+        }
+
+        .step-item .step-icon {
+            background: rgba(255,255,255,0.1);
+            color: #888;
+        }
+
+        .step-item.active .step-icon {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .step-item.completed .step-icon {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .step-item.error .step-icon {
+            background: var(--danger-color);
+            color: white;
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .step-message {
+            font-size: 0.9rem;
+            color: #888;
+        }
+
+        .step-progress {
+            width: 60px;
+            text-align: right;
+            font-weight: 600;
+        }
+
+        .progress {
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+            margin-top: 0.5rem;
+        }
+
+        .progress-bar {
+            background: linear-gradient(90deg, var(--primary-color), var(--success-color));
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+
+        /* Download Section */
+        .download-section {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .download-section.active {
+            display: block;
+        }
+
+        .download-section .success-icon {
+            font-size: 5rem;
+            color: var(--success-color);
+            margin-bottom: 1rem;
+        }
+
+        .btn-download {
+            background: linear-gradient(135deg, var(--success-color) 0%, #2e7d32 100%);
+            border: none;
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 10px;
+            margin: 0.5rem;
+        }
+
+        .btn-download:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(52,168,83,0.4);
+        }
+
+        .btn-new {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+        }
+
+        .btn-new:hover {
+            background: rgba(255,255,255,0.15);
+        }
+
+        /* Features List */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+        }
+
+        .feature-item i {
+            font-size: 1.5rem;
+            margin-right: 0.75rem;
+            color: var(--primary-color);
+        }
+
+        .feature-item span {
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+
+        /* Spinner */
+        .spinner-icon {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Footer */
+        .app-footer {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .app-footer a {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+
+        /* Pages Gallery */
+        .pages-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 10px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .page-thumbnail {
+            position: relative;
+            cursor: pointer;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 2px solid transparent;
+            transition: all 0.2s ease;
+            background: rgba(255,255,255,0.05);
+        }
+
+        .page-thumbnail:hover {
+            border-color: var(--primary-color);
+            transform: scale(1.02);
+        }
+
+        .page-thumbnail.excluded {
+            border-color: var(--warning-color);
+            opacity: 0.6;
+        }
+
+        .page-thumbnail.excluded::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 5px,
+                rgba(251,188,5,0.2) 5px,
+                rgba(251,188,5,0.2) 10px
+            );
+        }
+
+        .page-thumbnail img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .page-thumbnail .page-number {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            text-align: center;
+            font-size: 0.75rem;
+            padding: 2px 5px;
+        }
+
+        .page-thumbnail.excluded .page-number {
+            background: rgba(251,188,5,0.8);
+            color: #000;
+        }
+
+        .page-thumbnail .exclude-badge {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: var(--warning-color);
+            color: #000;
+            font-size: 0.65rem;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+
+        /* Scrollbar styling for gallery */
+        .pages-gallery::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .pages-gallery::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+        }
+
+        .pages-gallery::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.3);
+            border-radius: 4px;
+        }
+
+        .pages-gallery::-webkit-scrollbar-thumb:hover {
+            background: rgba(255,255,255,0.5);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main-container {
+                padding: 1rem;
+            }
+
+            .app-header h1 {
+                font-size: 1.75rem;
+            }
+
+            .upload-area {
+                padding: 2rem 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- Header -->
+        <header class="app-header">
+            <h1><i class="bi bi-file-earmark-word"></i> TIFF to DOCX Converter</h1>
+            <p class="subtitle">Conversion intelligente avec Google Vision OCR</p>
+        </header>
+
+        <!-- Privacy Warning -->
+        <div class="privacy-warning">
+            <div class="d-flex align-items-start">
+                <div class="icon me-3">
+                    <i class="bi bi-shield-exclamation"></i>
+                </div>
+                <div>
+                    <h5><i class="bi bi-exclamation-triangle"></i> Avertissement Confidentialité</h5>
+                    <ul>
+                        <li>Vos fichiers sont envoyés à <strong>Google Cloud Vision API</strong> pour l'OCR</li>
+                        <li>Les données transitent par les serveurs de Google</li>
+                        <li><strong>Ne pas utiliser</strong> pour des documents sensibles, confidentiels ou personnels</li>
+                        <li>Les fichiers temporaires sont supprimés après le téléchargement</li>
+                        <li>Consultez la <a href="https://cloud.google.com/terms" target="_blank">politique de confidentialité Google Cloud</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Form -->
+        <div class="card-custom" id="uploadCard">
+            <div class="card-header">
+                <i class="bi bi-cloud-upload"></i> Étape 1 : Sélection du fichier
+            </div>
+            <div class="card-body">
+                <form id="uploadForm">
+                    <!-- File Upload -->
+                    <div class="upload-area" id="uploadArea">
+                        <input type="file" id="fileInput" name="file" accept=".tif,.tiff" hidden>
+                        <div class="icon" id="uploadIcon">
+                            <i class="bi bi-file-earmark-image"></i>
+                        </div>
+                        <h5 id="fileName">Glissez-déposez votre fichier TIFF ici</h5>
+                        <p id="uploadHint">ou cliquez pour sélectionner (max 100 MB)</p>
+
+                        <!-- Preview Section (hidden by default) -->
+                        <div id="previewSection" style="display: none;">
+                            <div id="pageCount" class="mt-2 mb-3" style="font-size: 1.1rem; color: var(--success-color);">
+                                <i class="bi bi-file-earmark-text"></i> <span id="pageCountText"></span>
+                            </div>
+                            <!-- Gallery of all pages -->
+                            <div id="pagesGallery" class="pages-gallery">
+                                <!-- Pages will be inserted here dynamically -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Loading indicator for preview -->
+                    <div id="previewLoading" style="display: none; text-align: center; padding: 1rem;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Chargement...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Analyse du fichier...</p>
+                    </div>
+
+                    <!-- Option: Pages à exclure de l'OCR -->
+                    <div class="mt-4" id="excludePagesSection" style="display: none;">
+                        <label for="excludePages" class="form-label">
+                            <i class="bi bi-file-earmark-minus"></i> Pages à exclure de l'OCR (optionnel)
+                        </label>
+                        <input type="text" class="form-control" id="excludePages"
+                               placeholder="Ex: 1-3,5,8-10 (images conservées sans extraction de texte)"
+                               pattern="^[\d,\-\s]*$">
+                        <div class="form-text" id="excludePagesHelp">
+                            Format: numéros séparés par des virgules, plages avec tiret (ex: 1-3,5,8-10)
+                        </div>
+                        <div id="excludePagesError" class="text-danger mt-1" style="display: none;">
+                            <i class="bi bi-exclamation-triangle"></i> <span id="excludePagesErrorText"></span>
+                        </div>
+                        <div id="excludePagesValid" class="text-success mt-1" style="display: none;">
+                            <i class="bi bi-check-circle"></i> <span id="excludePagesValidText"></span>
+                        </div>
+                    </div>
+
+                    <!-- Résumé des choix -->
+                    <div class="mt-4" id="summarySection" style="display: none;">
+                        <div class="card" style="background: rgba(52,168,83,0.1); border-color: rgba(52,168,83,0.3);">
+                            <div class="card-header" style="background: rgba(52,168,83,0.15); border-bottom: 1px solid rgba(52,168,83,0.3);">
+                                <i class="bi bi-clipboard-check"></i> <strong>Résumé de la conversion</strong>
+                            </div>
+                            <div class="card-body">
+                                <table class="table table-sm table-borderless mb-0" style="color: var(--text-light);">
+                                    <tr>
+                                        <td style="width: 40%;"><i class="bi bi-file-earmark"></i> Fichier :</td>
+                                        <td><strong id="summaryFilename">-</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td><i class="bi bi-files"></i> Pages totales :</td>
+                                        <td><strong id="summaryTotalPages">-</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td><i class="bi bi-eye"></i> Pages avec OCR :</td>
+                                        <td><strong id="summaryOcrPages" class="text-success">-</strong></td>
+                                    </tr>
+                                    <tr id="summaryExcludedRow" style="display: none;">
+                                        <td><i class="bi bi-eye-slash"></i> Pages exclues :</td>
+                                        <td><strong id="summaryExcludedPages" class="text-warning">-</strong></td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Info -->
+                    <div class="mt-3">
+                        <div class="alert alert-info" style="background: rgba(66,133,244,0.1); border-color: rgba(66,133,244,0.3);">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>Conversion automatique :</strong> Image originale + Texte formaté (OCR Google Vision)
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="btn btn-primary btn-convert mt-4" id="convertBtn" disabled>
+                        <i class="bi bi-play-fill"></i> Lancer la conversion
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Progress Section -->
+        <div class="card-custom progress-section" id="progressCard">
+            <div class="card-header">
+                <i class="bi bi-hourglass-split"></i> Conversion en cours...
+            </div>
+            <div class="card-body">
+                <!-- Step 1: Conversion -->
+                <div class="step-item" id="step-conversion">
+                    <div class="step-icon">
+                        <i class="bi bi-images"></i>
+                    </div>
+                    <div class="step-content">
+                        <div class="step-title">Conversion TIFF → PNG</div>
+                        <div class="step-message" id="msg-conversion">En attente...</div>
+                        <div class="progress">
+                            <div class="progress-bar" id="progress-conversion" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="step-progress" id="pct-conversion">0%</div>
+                </div>
+
+                <!-- Step 2: OCR -->
+                <div class="step-item" id="step-ocr">
+                    <div class="step-icon">
+                        <i class="bi bi-eye"></i>
+                    </div>
+                    <div class="step-content">
+                        <div class="step-title">OCR Google Vision</div>
+                        <div class="step-message" id="msg-ocr">En attente...</div>
+                        <div class="progress">
+                            <div class="progress-bar" id="progress-ocr" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="step-progress" id="pct-ocr">0%</div>
+                </div>
+
+                <!-- Step 3: Formatting -->
+                <div class="step-item" id="step-formatting">
+                    <div class="step-icon">
+                        <i class="bi bi-file-earmark-richtext"></i>
+                    </div>
+                    <div class="step-content">
+                        <div class="step-title">Mise en forme DOCX</div>
+                        <div class="step-message" id="msg-formatting">En attente...</div>
+                        <div class="progress">
+                            <div class="progress-bar" id="progress-formatting" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="step-progress" id="pct-formatting">0%</div>
+                </div>
+
+                <!-- Step 4: Merging -->
+                <div class="step-item" id="step-merging">
+                    <div class="step-icon">
+                        <i class="bi bi-file-earmark-zip"></i>
+                    </div>
+                    <div class="step-content">
+                        <div class="step-title">Fusion des pages</div>
+                        <div class="step-message" id="msg-merging">En attente...</div>
+                        <div class="progress">
+                            <div class="progress-bar" id="progress-merging" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="step-progress" id="pct-merging">0%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Download Section -->
+        <div class="card-custom download-section" id="downloadCard">
+            <div class="card-body">
+                <div class="success-icon">
+                    <i class="bi bi-check-circle-fill"></i>
+                </div>
+                <h3>Conversion terminée !</h3>
+                <p class="text-muted" id="resultInfo">Document prêt au téléchargement</p>
+                <div class="mt-4">
+                    <button class="btn btn-success btn-download" id="downloadBtn">
+                        <i class="bi bi-download"></i> Télécharger le document
+                    </button>
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-new" onclick="resetForm()">
+                        <i class="bi bi-arrow-repeat"></i> Nouvelle conversion
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Features -->
+        <div class="card-custom">
+            <div class="card-header">
+                <i class="bi bi-stars"></i> Fonctionnalités
+            </div>
+            <div class="card-body">
+                <div class="features-grid">
+                    <div class="feature-item">
+                        <i class="bi bi-file-earmark-image"></i>
+                        <span>TIFF multi-pages</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="bi bi-google"></i>
+                        <span>Google Vision OCR</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="bi bi-file-earmark-word"></i>
+                        <span>Export DOCX formaté</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="bi bi-translate"></i>
+                        <span>Multi-langues</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="bi bi-speedometer2"></i>
+                        <span>Traitement rapide</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="bi bi-shield-check"></i>
+                        <span>Fichiers supprimés après</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>Développé par <strong>Hervé Lenglin</strong> avec <i class="bi bi-heart-fill text-danger"></i> |
+               Propulsé par <a href="https://cloud.google.com/vision" target="_blank">Google Cloud Vision</a></p>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+    <script>
+        // Global variables
+        let socket;
+        let currentSessionId = null;
+        let currentFileName = null;
+        let totalPages = 0;
+        let pagePreviews = [];  // Store all page previews
+
+        // DOM Elements
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileName = document.getElementById('fileName');
+        const uploadForm = document.getElementById('uploadForm');
+        const convertBtn = document.getElementById('convertBtn');
+        const uploadCard = document.getElementById('uploadCard');
+        const progressCard = document.getElementById('progressCard');
+        const downloadCard = document.getElementById('downloadCard');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const resultInfo = document.getElementById('resultInfo');
+
+        // Initialize Socket.IO
+        function initSocket() {
+            socket = io();
+
+            socket.on('connect', () => {
+                console.log('Connected to server');
+                if (currentSessionId) {
+                    socket.emit('join', { session_id: currentSessionId });
+                }
+            });
+
+            socket.on('progress_update', (data) => {
+                updateProgress(data);
+            });
+
+            socket.on('disconnect', () => {
+                console.log('Disconnected from server');
+            });
+        }
+
+        // File Upload Area Events
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                handleFileSelect();
+            }
+        });
+
+        fileInput.addEventListener('change', handleFileSelect);
+
+        async function handleFileSelect() {
+            if (fileInput.files.length) {
+                const file = fileInput.files[0];
+                const ext = file.name.split('.').pop().toLowerCase();
+
+                if (['tif', 'tiff'].includes(ext)) {
+                    fileName.textContent = file.name;
+                    uploadArea.classList.add('file-selected');
+
+                    // Masquer l'icône et le hint, afficher le chargement
+                    document.getElementById('uploadIcon').style.display = 'none';
+                    document.getElementById('uploadHint').style.display = 'none';
+                    document.getElementById('previewLoading').style.display = 'block';
+                    document.getElementById('previewSection').style.display = 'none';
+                    document.getElementById('excludePagesSection').style.display = 'none';
+
+                    // Appeler l'endpoint preview
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    try {
+                        const response = await fetch('/preview', {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        const data = await response.json();
+                        document.getElementById('previewLoading').style.display = 'none';
+
+                        if (data.success) {
+                            totalPages = data.total_pages;
+                            pagePreviews = data.previews;
+
+                            // Afficher le nombre de pages
+                            document.getElementById('pageCountText').textContent = `${totalPages} page${totalPages > 1 ? 's' : ''} détectée${totalPages > 1 ? 's' : ''}`;
+                            document.getElementById('previewSection').style.display = 'block';
+
+                            // Afficher la galerie de pages
+                            renderPagesGallery();
+
+                            // Afficher la section d'exclusion de pages
+                            document.getElementById('excludePagesSection').style.display = 'block';
+                            document.getElementById('excludePagesHelp').textContent =
+                                `Format: numéros de 1 à ${totalPages}, séparés par virgules ou plages (ex: 1-3,5). Cliquez sur une miniature pour l'exclure/inclure.`;
+
+                            // Afficher et mettre à jour le résumé
+                            updateSummary(file.name);
+
+                            convertBtn.disabled = false;
+                        } else {
+                            alert('Erreur lors de l\'analyse du fichier: ' + data.error);
+                            resetFileSelection();
+                        }
+                    } catch (error) {
+                        document.getElementById('previewLoading').style.display = 'none';
+                        alert('Erreur de connexion: ' + error.message);
+                        resetFileSelection();
+                    }
+                } else {
+                    alert('Format non supporté. Veuillez sélectionner un fichier .tif ou .tiff');
+                    resetFileSelection();
+                }
+            }
+        }
+
+        function resetFileSelection() {
+            fileInput.value = '';
+            fileName.textContent = 'Glissez-déposez votre fichier TIFF ici';
+            uploadArea.classList.remove('file-selected');
+            convertBtn.disabled = true;
+            totalPages = 0;
+            pagePreviews = [];
+            document.getElementById('uploadIcon').style.display = 'block';
+            document.getElementById('uploadHint').style.display = 'block';
+            document.getElementById('previewLoading').style.display = 'none';
+            document.getElementById('previewSection').style.display = 'none';
+            document.getElementById('excludePagesSection').style.display = 'none';
+            document.getElementById('summarySection').style.display = 'none';
+            document.getElementById('pagesGallery').innerHTML = '';
+        }
+
+        // Validation des pages à exclure
+        document.getElementById('excludePages').addEventListener('input', function() {
+            validateExcludePages();
+            updateSummary(fileInput.files.length ? fileInput.files[0].name : '');
+            renderPagesGallery();  // Mettre à jour l'affichage visuel
+        });
+
+        // Fonction pour mettre à jour le résumé
+        function updateSummary(filename) {
+            const summarySection = document.getElementById('summarySection');
+            const excludeInput = document.getElementById('excludePages').value.trim();
+
+            if (totalPages === 0) {
+                summarySection.style.display = 'none';
+                return;
+            }
+
+            summarySection.style.display = 'block';
+
+            // Nom du fichier
+            document.getElementById('summaryFilename').textContent = filename || '-';
+
+            // Pages totales
+            document.getElementById('summaryTotalPages').textContent = totalPages;
+
+            // Parser les pages exclues
+            let excludedCount = 0;
+            let excludedList = '';
+
+            if (excludeInput) {
+                const parsed = parsePageRanges(excludeInput);
+                if (!parsed.error && parsed.list.length > 0) {
+                    // Filtrer les pages valides
+                    const validExcluded = parsed.list.filter(p => p >= 1 && p <= totalPages);
+                    excludedCount = validExcluded.length;
+                    excludedList = formatPageList(validExcluded);
+                }
+            }
+
+            const ocrPages = totalPages - excludedCount;
+
+            // Mettre à jour l'affichage
+            document.getElementById('summaryOcrPages').textContent = `${ocrPages} page${ocrPages > 1 ? 's' : ''}`;
+
+            const excludedRow = document.getElementById('summaryExcludedRow');
+            if (excludedCount > 0) {
+                excludedRow.style.display = 'table-row';
+                document.getElementById('summaryExcludedPages').textContent =
+                    `${excludedCount} (${excludedList})`;
+            } else {
+                excludedRow.style.display = 'none';
+            }
+        }
+
+        // Empêcher les clics dans la section preview de déclencher le sélecteur de fichier
+        document.getElementById('previewSection').addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        // Afficher la galerie de pages
+        function renderPagesGallery() {
+            const gallery = document.getElementById('pagesGallery');
+            gallery.innerHTML = '';
+
+            // Obtenir les pages exclues actuelles
+            const excludeInput = document.getElementById('excludePages').value.trim();
+            let excludedPages = [];
+            if (excludeInput) {
+                const parsed = parsePageRanges(excludeInput);
+                if (!parsed.error) {
+                    excludedPages = parsed.list;
+                }
+            }
+
+            pagePreviews.forEach((preview, index) => {
+                const pageNum = preview.page;
+                const isExcluded = excludedPages.includes(pageNum);
+
+                const thumb = document.createElement('div');
+                thumb.className = `page-thumbnail${isExcluded ? ' excluded' : ''}`;
+                thumb.dataset.page = pageNum;
+                thumb.title = isExcluded ?
+                    `Page ${pageNum} - Exclue de l'OCR (cliquer pour inclure)` :
+                    `Page ${pageNum} - Cliquer pour exclure de l'OCR`;
+
+                thumb.innerHTML = `
+                    <img src="${preview.data}" alt="Page ${pageNum}">
+                    <div class="page-number">Page ${pageNum}</div>
+                    ${isExcluded ? '<div class="exclude-badge">EXCLUE</div>' : ''}
+                `;
+
+                // Cliquer pour basculer l'exclusion
+                thumb.addEventListener('click', (e) => {
+                    e.stopPropagation();  // Empêcher l'ouverture du sélecteur de fichier
+                    togglePageExclusion(pageNum);
+                });
+
+                gallery.appendChild(thumb);
+            });
+        }
+
+        // Basculer l'exclusion d'une page
+        function togglePageExclusion(pageNum) {
+            const excludeInput = document.getElementById('excludePages');
+            let currentValue = excludeInput.value.trim();
+
+            // Parser les pages actuellement exclues
+            let excludedPages = [];
+            if (currentValue) {
+                const parsed = parsePageRanges(currentValue);
+                if (!parsed.error) {
+                    excludedPages = parsed.list;
+                }
+            }
+
+            // Basculer la page
+            const index = excludedPages.indexOf(pageNum);
+            if (index > -1) {
+                // Retirer la page de l'exclusion
+                excludedPages.splice(index, 1);
+            } else {
+                // Ajouter la page à l'exclusion
+                excludedPages.push(pageNum);
+            }
+
+            // Reformater la liste
+            excludeInput.value = formatPageList(excludedPages);
+
+            // Mettre à jour l'affichage
+            validateExcludePages();
+            updateSummary(fileInput.files.length ? fileInput.files[0].name : '');
+            renderPagesGallery();
+        }
+
+        // Formater une liste de pages de manière compacte (1,2,3,5 -> 1-3,5)
+        function formatPageList(pages) {
+            if (pages.length === 0) return '';
+            if (pages.length === 1) return pages[0].toString();
+
+            pages.sort((a, b) => a - b);
+            const ranges = [];
+            let start = pages[0];
+            let end = pages[0];
+
+            for (let i = 1; i < pages.length; i++) {
+                if (pages[i] === end + 1) {
+                    end = pages[i];
+                } else {
+                    ranges.push(start === end ? `${start}` : `${start}-${end}`);
+                    start = pages[i];
+                    end = pages[i];
+                }
+            }
+            ranges.push(start === end ? `${start}` : `${start}-${end}`);
+
+            return ranges.join(', ');
+        }
+
+        function validateExcludePages() {
+            const input = document.getElementById('excludePages').value.trim();
+            const errorDiv = document.getElementById('excludePagesError');
+            const errorText = document.getElementById('excludePagesErrorText');
+            const validDiv = document.getElementById('excludePagesValid');
+            const validText = document.getElementById('excludePagesValidText');
+
+            errorDiv.style.display = 'none';
+            validDiv.style.display = 'none';
+
+            if (!input) {
+                return true;
+            }
+
+            if (totalPages === 0) {
+                return true;
+            }
+
+            // Parser les pages
+            const pages = parsePageRanges(input);
+
+            if (pages.error) {
+                errorText.textContent = pages.error;
+                errorDiv.style.display = 'block';
+                return false;
+            }
+
+            // Vérifier que les pages sont dans la plage valide
+            const invalidPages = pages.list.filter(p => p < 1 || p > totalPages);
+            if (invalidPages.length > 0) {
+                errorText.textContent = `Page(s) invalide(s): ${invalidPages.join(', ')}. Le document contient ${totalPages} page(s).`;
+                errorDiv.style.display = 'block';
+                return false;
+            }
+
+            // Vérifier qu'on n'exclut pas toutes les pages
+            if (pages.list.length >= totalPages) {
+                errorText.textContent = `Impossible d'exclure toutes les pages du document.`;
+                errorDiv.style.display = 'block';
+                return false;
+            }
+
+            // Tout est valide
+            if (pages.list.length > 0) {
+                const pagesOCR = totalPages - pages.list.length;
+                validText.textContent = `${pages.list.length} page(s) exclue(s), ${pagesOCR} page(s) avec OCR`;
+                validDiv.style.display = 'block';
+            }
+
+            return true;
+        }
+
+        function parsePageRanges(input) {
+            const pages = [];
+            const parts = input.replace(/\s/g, '').split(',');
+
+            for (const part of parts) {
+                if (!part) continue;
+
+                if (part.includes('-')) {
+                    const [start, end] = part.split('-').map(Number);
+                    if (isNaN(start) || isNaN(end)) {
+                        return { error: `Format invalide: "${part}"` };
+                    }
+                    if (start > end) {
+                        return { error: `Plage invalide: ${start} > ${end}` };
+                    }
+                    for (let i = start; i <= end; i++) {
+                        if (!pages.includes(i)) pages.push(i);
+                    }
+                } else {
+                    const num = Number(part);
+                    if (isNaN(num)) {
+                        return { error: `Numéro invalide: "${part}"` };
+                    }
+                    if (!pages.includes(num)) pages.push(num);
+                }
+            }
+
+            return { list: pages.sort((a, b) => a - b) };
+        }
+
+        // Form Submit
+        uploadForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Valider les pages à exclure avant de soumettre
+            if (!validateExcludePages()) {
+                alert('Veuillez corriger les erreurs dans les pages à exclure.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            // Ajouter les pages à exclure
+            const excludePages = document.getElementById('excludePages').value.trim();
+            if (excludePages) {
+                formData.append('exclude_pages', excludePages);
+            }
+
+            // Show progress section
+            uploadCard.style.display = 'none';
+            progressCard.classList.add('active');
+            downloadCard.classList.remove('active');
+            resetProgressSteps();
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    currentSessionId = data.session_id;
+                    currentFileName = data.filename;
+
+                    // Join socket room
+                    socket.emit('join', { session_id: currentSessionId });
+                } else {
+                    alert('Erreur: ' + data.error);
+                    resetForm();
+                }
+            } catch (error) {
+                alert('Erreur de connexion: ' + error.message);
+                resetForm();
+            }
+        });
+
+        // Update Progress
+        function updateProgress(data) {
+            const { step, progress, message, status } = data;
+
+            // Update step element
+            const stepEl = document.getElementById(`step-${step}`);
+            const msgEl = document.getElementById(`msg-${step}`);
+            const progressEl = document.getElementById(`progress-${step}`);
+            const pctEl = document.getElementById(`pct-${step}`);
+
+            if (stepEl && msgEl && progressEl && pctEl) {
+                // Remove all status classes
+                stepEl.classList.remove('active', 'completed', 'error');
+
+                if (status === 'processing') {
+                    stepEl.classList.add('active');
+                } else if (status === 'completed') {
+                    stepEl.classList.add('completed');
+                } else if (status === 'error') {
+                    stepEl.classList.add('error');
+                }
+
+                msgEl.textContent = message;
+                progressEl.style.width = `${progress}%`;
+                pctEl.textContent = `${progress}%`;
+            }
+
+            // Handle completion
+            if (step === 'complete' && status === 'completed') {
+                showDownload(data);
+            }
+
+            // Handle error
+            if (status === 'error') {
+                setTimeout(() => {
+                    alert('Erreur: ' + message);
+                    resetForm();
+                }, 1000);
+            }
+        }
+
+        // Show Download Section
+        function showDownload(data) {
+            setTimeout(() => {
+                progressCard.classList.remove('active');
+                downloadCard.classList.add('active');
+                resultInfo.textContent = data.message || 'Document prêt au téléchargement';
+            }, 500);
+        }
+
+        // Download Button
+        downloadBtn.addEventListener('click', () => {
+            if (currentSessionId) {
+                const filename = `document_converti_${currentSessionId.substring(0, 8)}.docx`;
+                window.location.href = `/download/${currentSessionId}/${filename}`;
+            }
+        });
+
+        // Reset Form
+        function resetForm() {
+            // Nettoyer l'ancienne session si elle existe
+            if (currentSessionId) {
+                fetch(`/cleanup/${currentSessionId}`, { method: 'POST' }).catch(() => {});
+            }
+
+            uploadCard.style.display = 'block';
+            progressCard.classList.remove('active');
+            downloadCard.classList.remove('active');
+
+            fileInput.value = '';
+            fileName.textContent = 'Glissez-déposez votre fichier TIFF ici';
+            uploadArea.classList.remove('file-selected');
+            convertBtn.disabled = true;
+
+            // Réinitialiser l'aperçu et les options
+            document.getElementById('excludePages').value = '';
+            document.getElementById('uploadIcon').style.display = 'block';
+            document.getElementById('uploadHint').style.display = 'block';
+            document.getElementById('previewLoading').style.display = 'none';
+            document.getElementById('previewSection').style.display = 'none';
+            document.getElementById('excludePagesSection').style.display = 'none';
+            document.getElementById('excludePagesError').style.display = 'none';
+            document.getElementById('excludePagesValid').style.display = 'none';
+            document.getElementById('summarySection').style.display = 'none';
+            document.getElementById('pagesGallery').innerHTML = '';
+            totalPages = 0;
+            pagePreviews = [];
+
+            resetProgressSteps();
+
+            currentSessionId = null;
+            currentFileName = null;
+
+            // Réinitialiser la connexion socket
+            if (socket && socket.connected) {
+                socket.disconnect();
+                socket.connect();
+            }
+        }
+
+        // Reset Progress Steps
+        function resetProgressSteps() {
+            const steps = ['conversion', 'ocr', 'formatting', 'merging'];
+            steps.forEach(step => {
+                const stepEl = document.getElementById(`step-${step}`);
+                const msgEl = document.getElementById(`msg-${step}`);
+                const progressEl = document.getElementById(`progress-${step}`);
+                const pctEl = document.getElementById(`pct-${step}`);
+
+                if (stepEl) stepEl.classList.remove('active', 'completed', 'error');
+                if (msgEl) msgEl.textContent = 'En attente...';
+                if (progressEl) progressEl.style.width = '0%';
+                if (pctEl) pctEl.textContent = '0%';
+            });
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initSocket();
+        });
+    </script>
+</body>
+</html>
