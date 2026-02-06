@@ -107,7 +107,7 @@ def convert_tiff_to_png(tiff_path, output_dir, session_id):
     return png_files
 
 def google_vision_ocr_with_layout(image_path, api_key):
-    """OCR avec détection de la mise en page"""
+    """OCR avec détection de la mise en page, tableaux et scores de confiance"""
     with open(image_path, 'rb') as f:
         image_content = base64.b64encode(f.read()).decode('utf-8')
 
@@ -115,7 +115,15 @@ def google_vision_ocr_with_layout(image_path, api_key):
     payload = {
         'requests': [{
             'image': {'content': image_content},
-            'features': [{'type': 'DOCUMENT_TEXT_DETECTION'}]
+            'features': [{'type': 'DOCUMENT_TEXT_DETECTION'}],
+            # Option 1: Hint de langue française pour améliorer la reconnaissance
+            'imageContext': {
+                'languageHints': ['fr', 'en'],
+                # Option 2: Activer les scores de confiance
+                'textDetectionParams': {
+                    'enableTextDetectionConfidenceScore': True
+                }
+            }
         }]
     }
 
@@ -128,8 +136,11 @@ def google_vision_ocr_with_layout(image_path, api_key):
     data = {
         'full_text': '',
         'paragraphs': [],
+        'blocks': [],  # Nouveau: blocs avec type (TABLE, TEXT, etc.)
         'width': 0,
-        'height': 0
+        'height': 0,
+        'detected_languages': [],
+        'avg_confidence': 0
     }
 
     if 'responses' in result and result['responses']:
@@ -144,15 +155,52 @@ def google_vision_ocr_with_layout(image_path, api_key):
                 data['width'] = page.get('width', 1000)
                 data['height'] = page.get('height', 1000)
 
+                # Récupérer les langues détectées
+                page_prop = page.get('property', {})
+                detected_langs = page_prop.get('detectedLanguages', [])
+                data['detected_languages'] = [
+                    {'code': lang.get('languageCode', ''), 'confidence': lang.get('confidence', 0)}
+                    for lang in detected_langs
+                ]
+
+                all_confidences = []
+
                 for block in page.get('blocks', []):
+                    # Option 3: Récupérer le type de bloc (TABLE, TEXT, PICTURE, etc.)
+                    block_type = block.get('blockType', 'TEXT')
+                    block_confidence = block.get('confidence', 0)
+                    block_vertices = block.get('boundingBox', {}).get('vertices', [])
+
+                    block_data = {
+                        'type': block_type,
+                        'confidence': block_confidence,
+                        'paragraphs': []
+                    }
+
+                    if block_vertices and len(block_vertices) >= 4:
+                        block_data['x'] = block_vertices[0].get('x', 0)
+                        block_data['y'] = block_vertices[0].get('y', 0)
+                        block_data['x2'] = block_vertices[2].get('x', 0)
+                        block_data['y2'] = block_vertices[2].get('y', 0)
+
                     for para in block.get('paragraphs', []):
                         para_text = ""
+                        para_confidence = para.get('confidence', 0)
                         vertices = para.get('boundingBox', {}).get('vertices', [])
+                        word_details = []
 
                         for word in para.get('words', []):
                             word_text = ""
+                            word_confidence = word.get('confidence', 0)
+                            all_confidences.append(word_confidence)
+
                             for symbol in word.get('symbols', []):
                                 word_text += symbol.get('text', '')
+
+                            word_details.append({
+                                'text': word_text,
+                                'confidence': word_confidence
+                            })
                             para_text += word_text + " "
 
                         if vertices and len(vertices) >= 4 and para_text.strip():
@@ -161,15 +209,27 @@ def google_vision_ocr_with_layout(image_path, api_key):
                             x2 = vertices[2].get('x', x)
                             y2 = vertices[2].get('y', y)
 
-                            data['paragraphs'].append({
+                            para_data = {
                                 'text': para_text.strip(),
                                 'x': x,
                                 'y': y,
                                 'width': x2 - x,
                                 'height': y2 - y,
                                 'x_percent': x / data['width'] * 100 if data['width'] > 0 else 0,
-                                'y_percent': y / data['height'] * 100 if data['height'] > 0 else 0
-                            })
+                                'y_percent': y / data['height'] * 100 if data['height'] > 0 else 0,
+                                'confidence': para_confidence,
+                                'words': word_details,
+                                'block_type': block_type  # Associer le type de bloc au paragraphe
+                            }
+
+                            data['paragraphs'].append(para_data)
+                            block_data['paragraphs'].append(para_data)
+
+                    data['blocks'].append(block_data)
+
+                # Calculer la confiance moyenne
+                if all_confidences:
+                    data['avg_confidence'] = sum(all_confidences) / len(all_confidences)
 
     # Trier par position Y puis X
     data['paragraphs'].sort(key=lambda p: (p['y'], p['x']))
@@ -213,6 +273,23 @@ def detect_layout_zones(paragraphs, page_width):
         zones.append(current_row)
 
     return zones
+
+
+def is_table_zone(zone):
+    """Déterminer si une zone est un tableau basé sur blockType de Google Vision"""
+    for para in zone:
+        if para.get('block_type') == 'TABLE':
+            return True
+    return False
+
+
+def get_low_confidence_words(para_data, threshold=0.85):
+    """Récupérer les mots avec une confiance faible"""
+    low_conf_words = []
+    for word in para_data.get('words', []):
+        if word.get('confidence', 1.0) < threshold:
+            low_conf_words.append(word['text'])
+    return low_conf_words
 
 def detect_table_structure(zones):
     """Détecter si plusieurs zones consécutives forment un tableau"""
@@ -278,7 +355,10 @@ def create_formatted_document(ocr_data, page_num, total_pages, image_path=None, 
         # Restaurer les marges pour le texte
         # Note: on ne peut pas changer les marges après, donc on utilise l'indentation
 
-    # Titre de la section texte
+    # Titre de la section texte avec indicateur de confiance
+    avg_confidence = ocr_data.get('avg_confidence', 0)
+    confidence_color = RGBColor(0, 128, 0) if avg_confidence >= 0.9 else RGBColor(200, 150, 0) if avg_confidence >= 0.75 else RGBColor(200, 0, 0)
+
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = p.add_run(f"══════════════════════════════════════════")
@@ -291,6 +371,12 @@ def create_formatted_document(ocr_data, page_num, total_pages, image_path=None, 
     run.bold = True
     run.font.size = Pt(14)
     run.font.color.rgb = RGBColor(0, 51, 102)
+
+    # Afficher la confiance moyenne si disponible
+    if avg_confidence > 0:
+        run = p.add_run(f"  [Confiance: {avg_confidence*100:.0f}%]")
+        run.font.size = Pt(10)
+        run.font.color.rgb = confidence_color
 
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -334,19 +420,20 @@ def create_formatted_document(ocr_data, page_num, total_pages, image_path=None, 
         if y_pct - last_y_percent > 3 and zone_idx > 0:
             doc.add_paragraph()
 
-        # Cas 1: Plusieurs éléments sur la même ligne -> créer un tableau
-        if len(row) >= 2:
+        # Option 3: Détection améliorée des tableaux via blockType
+        is_table = is_table_zone(row) or len(row) >= 2
+
+        # Cas 1: Tableau détecté (par Google Vision ou multi-colonnes)
+        if is_table:
             table = doc.add_table(rows=1, cols=len(row))
             table.alignment = WD_TABLE_ALIGNMENT.CENTER
-
-            # Calculer les largeurs de colonnes basées sur les positions X
-            total_width = Cm(17)
 
             for col_idx, para in enumerate(row):
                 cell = table.cell(0, col_idx)
                 cell_para = cell.paragraphs[0]
 
                 text = para['text']
+                low_conf_words = get_low_confidence_words(para)
 
                 # Alignement basé sur la position dans la ligne
                 if col_idx == 0:
@@ -356,22 +443,30 @@ def create_formatted_document(ocr_data, page_num, total_pages, image_path=None, 
                 else:
                     cell_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-                run = cell_para.add_run(text)
-                run.font.name = 'Arial'
-
-                # Style selon le type de contenu
-                if in_header_section or is_header_text(text):
+                # Si le bloc est identifié comme TABLE par Google Vision, ajouter bordures
+                if para.get('block_type') == 'TABLE' or in_header_section or is_header_text(text):
+                    set_cell_border(cell, "4")
+                    run = cell_para.add_run(text)
                     run.bold = True
                     run.font.size = Pt(11)
-                    set_cell_border(cell, "4")  # Bordures pour l'en-tête
                 else:
+                    run = cell_para.add_run(text)
                     run.font.size = Pt(10)
+
+                run.font.name = 'Arial'
+
+                # Marquer visuellement les mots à faible confiance
+                if low_conf_words:
+                    run = cell_para.add_run(f" [?]")
+                    run.font.size = Pt(8)
+                    run.font.color.rgb = RGBColor(200, 150, 0)
 
         # Cas 2: Un seul élément
         else:
             para = row[0]
             text = para['text']
             x_pct = para['x_percent']
+            low_conf_words = get_low_confidence_words(para)
 
             p = doc.add_paragraph()
 
@@ -425,6 +520,13 @@ def create_formatted_document(ocr_data, page_num, total_pages, image_path=None, 
                 run = p.add_run(text)
                 run.font.size = Pt(11)
                 run.font.name = 'Arial'
+
+            # Indicateur visuel pour mots à faible confiance
+            if low_conf_words and len(low_conf_words) <= 3:
+                run = p.add_run(f"  [? {', '.join(low_conf_words)}]")
+                run.font.size = Pt(8)
+                run.font.color.rgb = RGBColor(200, 150, 0)
+                run.italic = True
 
         last_y_percent = y_pct
 
@@ -526,15 +628,15 @@ def add_summary_page(doc, conversion_info):
 
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = p.add_run("Conversion TIFF vers DOCX avec OCR")
+    run = p.add_run("Conversion TIFF vers DOCX avec OCR Google Vision")
     run.font.size = Pt(12)
     run.font.color.rgb = RGBColor(100, 100, 100)
 
     doc.add_paragraph()
     doc.add_paragraph()
 
-    # Tableau de résumé
-    table = doc.add_table(rows=5, cols=2)
+    # Tableau de résumé - ajout de lignes pour les stats OCR avancées
+    table = doc.add_table(rows=8, cols=2)
     table.style = 'Table Grid'
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
 
@@ -579,6 +681,47 @@ def add_summary_page(doc, conversion_info):
     else:
         cell.paragraphs[0].add_run("Aucune")
 
+    # Ligne 6: Confiance moyenne OCR (nouvelle)
+    cell = table.cell(5, 0)
+    cell.paragraphs[0].add_run("Confiance OCR moyenne").bold = True
+    cell = table.cell(5, 1)
+    avg_conf = conversion_info.get('avg_confidence', 0)
+    if avg_conf > 0:
+        conf_text = f"{avg_conf*100:.1f}%"
+        run = cell.paragraphs[0].add_run(conf_text)
+        if avg_conf >= 0.9:
+            run.font.color.rgb = RGBColor(0, 128, 0)  # Vert
+        elif avg_conf >= 0.75:
+            run.font.color.rgb = RGBColor(200, 150, 0)  # Orange
+        else:
+            run.font.color.rgb = RGBColor(200, 0, 0)  # Rouge
+    else:
+        cell.paragraphs[0].add_run("N/A")
+
+    # Ligne 7: Langues détectées (nouvelle)
+    cell = table.cell(6, 0)
+    cell.paragraphs[0].add_run("Langues détectées").bold = True
+    cell = table.cell(6, 1)
+    languages = conversion_info.get('detected_languages', [])
+    if languages:
+        lang_texts = []
+        for lang in languages[:3]:  # Max 3 langues
+            code = lang.get('code', '').upper()
+            conf = lang.get('confidence', 0)
+            lang_texts.append(f"{code} ({conf*100:.0f}%)")
+        cell.paragraphs[0].add_run(", ".join(lang_texts))
+    else:
+        cell.paragraphs[0].add_run("Non détectées")
+
+    # Ligne 8: Options OCR utilisées (nouvelle)
+    cell = table.cell(7, 0)
+    cell.paragraphs[0].add_run("Options OCR").bold = True
+    cell = table.cell(7, 1)
+    options = ["Hint langue FR", "Scores confiance", "Détection tableaux"]
+    run = cell.paragraphs[0].add_run(", ".join(options))
+    run.font.size = Pt(9)
+    run.font.color.rgb = RGBColor(100, 100, 100)
+
     # Appliquer le style aux cellules
     for row in table.rows:
         for cell in row.cells:
@@ -587,7 +730,8 @@ def add_summary_page(doc, conversion_info):
                 para.paragraph_format.space_after = Pt(4)
                 for run in para.runs:
                     run.font.name = 'Arial'
-                    run.font.size = Pt(11)
+                    if run.font.size is None:
+                        run.font.size = Pt(11)
 
     doc.add_paragraph()
     doc.add_paragraph()
@@ -769,6 +913,34 @@ def process_tiff(tiff_path, api_key, session_id, output_mode='image_only', exclu
             emit_progress(session_id, 'ocr', 100, 'OCR terminé', 'completed')
             socketio.sleep(0.1)  # S'assurer que le message "completed" est bien envoyé
 
+        # Collecter les statistiques OCR avancées
+        all_confidences = []
+        all_languages = {}
+
+        for ocr_data in ocr_results:
+            if not ocr_data.get('excluded', False):
+                # Collecter les confiances
+                if ocr_data.get('avg_confidence', 0) > 0:
+                    all_confidences.append(ocr_data['avg_confidence'])
+
+                # Collecter les langues détectées
+                for lang in ocr_data.get('detected_languages', []):
+                    code = lang.get('code', '')
+                    if code:
+                        if code not in all_languages:
+                            all_languages[code] = []
+                        all_languages[code].append(lang.get('confidence', 0))
+
+        # Calculer la confiance moyenne globale
+        global_avg_confidence = sum(all_confidences) / len(all_confidences) if all_confidences else 0
+
+        # Calculer la confiance moyenne par langue
+        detected_languages = []
+        for code, confidences in all_languages.items():
+            avg_conf = sum(confidences) / len(confidences)
+            detected_languages.append({'code': code, 'confidence': avg_conf})
+        detected_languages.sort(key=lambda x: x['confidence'], reverse=True)
+
         # Préparer les métadonnées de conversion
         valid_excluded = sorted([p for p in excluded if 1 <= p <= total_pages])
         conversion_info = {
@@ -776,7 +948,9 @@ def process_tiff(tiff_path, api_key, session_id, output_mode='image_only', exclu
             'total_pages': total_pages,
             'excluded_pages': valid_excluded,
             'ocr_pages': total_pages - len(valid_excluded),
-            'date': time.strftime('%d/%m/%Y %H:%M')
+            'date': time.strftime('%d/%m/%Y %H:%M'),
+            'avg_confidence': global_avg_confidence,
+            'detected_languages': detected_languages
         }
 
         # Création documents
