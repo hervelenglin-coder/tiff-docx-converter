@@ -75,6 +75,7 @@ def parse_page_ranges(page_string):
 
 def emit_progress(session_id, step, progress, message, status='processing'):
     """Émettre un événement de progression vers le client"""
+    import sys
     data = {
         'session_id': session_id,
         'step': step,
@@ -85,7 +86,8 @@ def emit_progress(session_id, step, progress, message, status='processing'):
     # Émettre à la room spécifique ET en broadcast pour assurer la réception
     socketio.emit('progress_update', data, room=session_id)
     socketio.emit('progress_update', data, namespace='/')
-    print(f"[PROGRESS] {session_id[:8]} - {step}: {progress}% - {message} ({status})")
+    print(f"[PROGRESS] {session_id[:8]} - {step}: {progress}% - {message} ({status})", flush=True)
+    sys.stdout.flush()
 
 def convert_tiff_to_png(tiff_path, output_dir, session_id):
     png_files = []
@@ -118,11 +120,7 @@ def google_vision_ocr_with_layout(image_path, api_key):
             'features': [{'type': 'DOCUMENT_TEXT_DETECTION'}],
             # Option 1: Hint de langue française pour améliorer la reconnaissance
             'imageContext': {
-                'languageHints': ['fr', 'en'],
-                # Option 2: Activer les scores de confiance
-                'textDetectionParams': {
-                    'enableTextDetectionConfidenceScore': True
-                }
+                'languageHints': ['fr', 'en']
             }
         }]
     }
@@ -130,8 +128,28 @@ def google_vision_ocr_with_layout(image_path, api_key):
     response = requests.post(url, json=payload, timeout=120)
     result = response.json()
 
+    # Debug: afficher le statut de la réponse
+    print(f"[OCR DEBUG] HTTP Status: {response.status_code}")
+
+    # Debug: afficher l'erreur si présente
     if 'error' in result:
+        print(f"[OCR ERROR] API Error: {result['error']}")
         raise Exception(f"API Error: {result['error']}")
+
+    # Vérifier les erreurs dans la réponse
+    if 'responses' in result and result['responses']:
+        resp = result['responses'][0]
+        if 'error' in resp:
+            print(f"[OCR ERROR] Response Error: {resp['error']}")
+            raise Exception(f"Response Error: {resp['error']}")
+        # Debug: afficher si du texte a été trouvé
+        has_text = 'fullTextAnnotation' in resp
+        print(f"[OCR DEBUG] Text found: {has_text}")
+        if has_text:
+            text_preview = resp['fullTextAnnotation']['text'][:100].replace('\n', ' ')
+            print(f"[OCR DEBUG] Preview: {text_preview}...")
+    else:
+        print(f"[OCR DEBUG] No responses in result: {list(result.keys())}")
 
     data = {
         'full_text': '',
